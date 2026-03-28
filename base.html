@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cloud Notes — {% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://unpkg.com/feather-icons"></script>
+</head>
+<body>
+  {% block body %}{% endblock %}
+
+  <!-- Lock PIN modal -->
+  <div id="lockPinModal" class="modal" aria-hidden="true">
+    <div class="modal-content" style="max-width:420px;">
+      <div class="modal-header">
+        <h3 id="lockPinTitle">Pin Required</h3>
+        <button class="modal-close-btn"><span data-feather="x"></span></button>
+      </div>
+      <p id="lockPinMessage" class="modal-subtext">
+        Please enter your lock PIN.
+      </p>
+      <form id="lockPinForm">
+        <div class="form-group">
+          <input type="password" id="lockPinInput" name="pin"
+                 class="input-field" placeholder="Enter PIN" required />
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn-secondary modal-close-btn">Cancel</button>
+          <button type="submit" class="btn-primary">Submit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Note modal -->
+  <div id="viewNoteModal" class="modal" aria-hidden="true">
+    <div class="modal-content" style="max-width:700px;">
+      <div class="modal-header">
+        <h2 id="viewNoteTitle">Note title</h2>
+        <button class="modal-close-btn"><span data-feather="x"></span></button>
+      </div>
+      <div class="note-content-display">
+        <p id="viewNoteContent"></p>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary modal-close-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script>feather.replace()</script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
