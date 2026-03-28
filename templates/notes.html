@@ -1,0 +1,290 @@
+{% extends "base.html" %}
+{% block title %}Notes{% endblock %}
+
+{% block body %}
+<div class="app-shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-icon">☁</span>
+      <span class="brand-text">Cloud Notes</span>
+    </div>
+
+    <button id="openNewNoteModal" class="btn-primary sidebar-new-btn">
+      + New Note
+    </button>
+
+    <p class="sidebar-heading">MENU</p>
+    <nav class="sidebar-menu">
+      <a href="{{ url_for('notes_dashboard', view='all') }}"
+         class="sidebar-link {% if view == 'all' %}active{% endif %}">
+        <span>All Notes</span>
+        <span class="count">{{ counts['all_count'] or 0 }}</span>
+      </a>
+      <a href="{{ url_for('notes_dashboard', view='archived') }}"
+         class="sidebar-link {% if view == 'archived' %}active{% endif %}">
+        <span>Archived</span>
+        <span class="count">{{ counts['archived_count'] or 0 }}</span>
+      </a>
+      <a href="{{ url_for('notes_dashboard', view='locked') }}"
+         class="sidebar-link {% if view == 'locked' %}active{% endif %}">
+        <span>Locked Notes</span>
+        <span class="count">{{ counts['locked_count'] or 0 }}</span>
+      </a>
+      <a href="{{ url_for('checkpoints') }}"
+         class="sidebar-link sidebar-link-secondary">
+        <span>Checkpoints</span>
+      </a>
+
+      <!-- Single "Recently Deleted" option -->
+      <a href="#" id="openRecentDeleted"
+         class="sidebar-link sidebar-link-secondary">
+        <span>Recently Deleted</span>
+        <span class="count" id="recentDeletedCount">0</span>
+      </a>
+    </nav>
+
+    <div id="lockedNotesCount" class="sidebar-footer-text">
+      {{ counts['locked_count'] or 0 }} locked notes
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" type="button">
+          <span data-feather="menu"></span>
+        </button>
+        <h2 class="topbar-title">All Notes</h2>
+      </div>
+
+      <div class="topbar-right">
+        <form method="get" action="{{ url_for('notes_dashboard') }}" class="search-form">
+          <input type="text" name="search" placeholder="Search notes..."
+                 value="{{ search_query }}" class="search-input" />
+          <span data-feather="search" class="search-icon"></span>
+        </form>
+
+        <div class="profile-info">
+          <div class="avatar-circle">
+            {{ user.fullname[0:1] | upper }}
+          </div>
+          <div class="profile-menu">
+            <div class="profile-menu-header">
+              <div class="avatar-circle small">
+                {{ user.fullname[0:1] | upper }}
+              </div>
+              <div>
+                <div class="profile-name">{{ user.fullname }}</div>
+                <div class="profile-email">{{ user.email }}</div>
+              </div>
+            </div>
+            <hr />
+            <a href="#" id="openProfileModal" class="profile-menu-item">
+              <span data-feather="settings"></span>
+              <span>Profile Settings</span>
+            </a>
+            <a href="{{ url_for('signout') }}" class="profile-menu-item">
+              <span data-feather="log-out"></span>
+              <span>Sign Out</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="content-area">
+      {% if notes|length == 0 %}
+        <div class="empty-state">
+          <div class="empty-icon">
+            <span data-feather="file-text"></span>
+          </div>
+          <h3>No notes yet</h3>
+          <p>Create your first note to get started</p>
+          <button id="createFirstNoteBtn" class="btn-primary">
+            + New Note
+          </button>
+        </div>
+      {% else %}
+        <div class="notes-grid">
+          {% for note in notes %}
+          <article class="note-card {% if note['is_locked'] %}locked-note{% endif %}"
+                   data-note-id="{{ note['id'] }}">
+            <div class="note-card-body">
+              <h4 class="note-title">
+                {% if note['is_locked'] %}
+                  🔒 Locked Note
+                {% else %}
+                  {{ note['title'] }}
+                {% endif %}
+              </h4>
+
+              <p class="note-excerpt">
+                {% if note['is_locked'] %}
+                  Content hidden. Unlock to view.
+                {% else %}
+                  {{ note['content'][:140] }}
+                {% endif %}
+              </p>
+            </div>
+            <div class="note-actions">
+              <button class="icon-button toggle-archive-btn"
+                      data-note-id="{{ note['id'] }}"
+                      title="Archive / Unarchive">
+                {{ '📦' if view != 'archived' else '📥' }}
+              </button>
+              <button class="icon-button toggle-lock-btn"
+                      data-note-id="{{ note['id'] }}"
+                      data-is-locked="{{ 1 if note['is_locked'] else 0 }}"
+                      title="Lock / Unlock">
+                {{ '🔒' if note['is_locked'] else '🔓' }}
+              </button>
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+  </main>
+</div>
+
+<!-- Edit / New note modal -->
+<div id="editNoteModal" class="modal" aria-hidden="true">
+  <div class="modal-content note-modal">
+    <form id="noteForm">
+      <div class="modal-header note-modal-header">
+        <div class="note-modal-left">
+          <button type="button" class="modal-close-btn icon-only">
+            <span data-feather="arrow-left"></span>
+          </button>
+          <h2 id="noteModalTitle">Edit Note</h2>
+        </div>
+        <div class="note-modal-right">
+          <!-- Archive & Lock buttons removed -->
+          <button id="noteSaveBtn" type="submit" class="btn-primary small">
+            Save
+          </button>
+          <button id="noteDeleteBtn" type="button"
+                  class="icon-button danger" style="display:none;">
+            <span data-feather="trash-2"></span>
+          </button>
+          <button type="button" class="modal-close-btn icon-only">
+            <span data-feather="x"></span>
+          </button>
+        </div>
+      </div>
+
+      <input type="hidden" id="noteId" value="0" />
+
+      <div class="note-modal-body">
+        <input id="noteTitle" class="note-title-input"
+               placeholder="Title" required />
+        <textarea id="noteContent" rows="16"
+                  class="note-content-input"
+                  placeholder="Start typing..." required></textarea>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Profile settings modal -->
+<div id="profileSettingsModal" class="modal" aria-hidden="true">
+  <div class="modal-content profile-modal">
+    <div class="modal-header profile-modal-header">
+      <button class="modal-close-btn icon-only">
+        <span data-feather="x"></span>
+      </button>
+    </div>
+
+    <div class="profile-modal-body">
+      <div class="profile-modal-top">
+        <div class="avatar-large">
+          {{ user_info['fullname'][0:1] | upper }}
+        </div>
+        <h3>{{ user_info['fullname'] }}</h3>
+        <p class="profile-email">{{ user_info['email'] }}</p>
+      </div>
+
+      <h2 class="profile-modal-title">Profile Settings</h2>
+
+      <form method="POST" action="{{ url_for('profile_settings') }}"
+            class="profile-form">
+        <div class="form-row">
+          <label>Full Name</label>
+          <input name="fullname" class="input-field"
+                 value="{{ user_info['fullname'] }}" />
+        </div>
+        <div class="form-row">
+          <label>Email Address</label>
+          <input class="input-field" value="{{ user_info['email'] }}"
+                 readonly />
+        </div>
+        <div class="form-row">
+          <label>Phone Number</label>
+          <input name="phone" class="input-field"
+                 value="{{ user_info['phone'] or '' }}"
+                 placeholder="+91 00000 00000" />
+        </div>
+        <div class="profile-form-actions">
+          <button type="button" class="btn-secondary modal-close-btn">
+            Cancel
+          </button>
+          <button type="submit" class="btn-primary">
+            Update Profile
+          </button>
+        </div>
+      </form>
+
+      <hr class="divider" />
+
+      <div class="lock-pin-section">
+        <h4>Change Lock PIN</h4>
+        <p class="lock-pin-hint
+           {% if not user_info['lock_pin'] %}danger-text{% endif %}">
+          {% if not user_info['lock_pin'] %}
+            No lock PIN is set. Set a 4-digit PIN to lock notes.
+          {% else %}
+            A lock PIN is set. You can update it below.
+          {% endif %}
+        </p>
+        <form method="POST" action="{{ url_for('set_lock_pin') }}"
+              class="lock-pin-form">
+          <input name="lock_pin" type="password"
+                 placeholder="Enter 4-digit PIN"
+                 class="input-field"
+                 minlength="4" maxlength="4" required />
+          <button type="submit" class="btn-primary small">
+            Update PIN
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recently Deleted modal -->
+<div id="recentDeletedModal" class="modal" aria-hidden="true">
+  <div class="modal-content" style="max-width:640px;">
+    <div class="modal-header">
+      <h2>Recently Deleted</h2>
+      <button class="modal-close-btn"><span data-feather="x"></span></button>
+    </div>
+
+    <p class="modal-subtext" style="color:#6b7280; margin-bottom:10px;">
+      These are notes and checklists you deleted recently. You can undo delete.
+    </p>
+
+    <ul id="recentDeletedList"
+        style="list-style:none; margin:0; padding-left:0;">
+      <!-- filled by JS -->
+    </ul>
+
+    <div class="modal-actions">
+      <button id="recentClearAllBtn" type="button" class="btn-secondary">
+        Clear All
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
